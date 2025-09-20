@@ -21,9 +21,9 @@ const settingsSchema = z.object({
   contactPhone: z.string().optional(),
   contactEmail: z.string().email().optional().or(z.literal('')),
   address: z.string().optional(),
+  defaultDailyFee: z.number().min(0, 'Fee must be non-negative'),
+  defaultWeeklyFee: z.number().min(0, 'Fee must be non-negative'),
   defaultMonthlyFee: z.number().min(0, 'Fee must be non-negative'),
-  defaultQuarterlyFee: z.number().min(0, 'Fee must be non-negative'),
-  defaultAnnualFee: z.number().min(0, 'Fee must be non-negative'),
   pinCode: z.string().min(4, 'PIN must be at least 4 digits').optional(),
 });
 
@@ -47,9 +47,9 @@ export default function Settings() {
       contactPhone: '',
       contactEmail: '',
       address: '',
-      defaultMonthlyFee: 2000,
-      defaultQuarterlyFee: 5500,
-      defaultAnnualFee: 20000,
+      defaultDailyFee: 150,
+      defaultWeeklyFee: 800,
+      defaultMonthlyFee: 2500,
       pinCode: '',
     },
   });
@@ -75,9 +75,9 @@ export default function Settings() {
           contactPhone: gymSettings.contactPhone || '',
           contactEmail: gymSettings.contactEmail || '',
           address: gymSettings.address || '',
+          defaultDailyFee: gymSettings.defaultDailyFee,
+          defaultWeeklyFee: gymSettings.defaultWeeklyFee,
           defaultMonthlyFee: gymSettings.defaultMonthlyFee,
-          defaultQuarterlyFee: gymSettings.defaultQuarterlyFee,
-          defaultAnnualFee: gymSettings.defaultAnnualFee,
           pinCode: '', // Never pre-fill PIN for security
         });
       } else {
@@ -122,9 +122,9 @@ export default function Settings() {
         contactPhone: data.contactPhone,
         contactEmail: data.contactEmail,
         address: data.address,
+        defaultDailyFee: data.defaultDailyFee,
+        defaultWeeklyFee: data.defaultWeeklyFee,
         defaultMonthlyFee: data.defaultMonthlyFee,
-        defaultQuarterlyFee: data.defaultQuarterlyFee,
-        defaultAnnualFee: data.defaultAnnualFee,
         pinCode: data.pinCode || settings?.pinCode,
         updatedAt: new Date(),
       };
@@ -423,6 +423,44 @@ export default function Settings() {
               <div className="grid md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
+                  name="defaultDailyFee"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Daily Fee</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="150"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="defaultWeeklyFee"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Weekly Fee</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="800"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="defaultMonthlyFee"
                   render={({ field }) => (
                     <FormItem>
@@ -430,45 +468,7 @@ export default function Settings() {
                       <FormControl>
                         <Input
                           type="number"
-                          placeholder="2000"
-                          {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="defaultQuarterlyFee"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quarterly Fee</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="5500"
-                          {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="defaultAnnualFee"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Annual Fee</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="20000"
+                          placeholder="2500"
                           {...field}
                           onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                         />

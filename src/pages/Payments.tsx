@@ -119,6 +119,7 @@ export default function Payments() {
         paymentDate: data.paymentDate,
         renewalPeriod: data.renewalPeriod,
         notes: data.notes || '',
+        status: 'complete',
         createdAt: new Date(),
       });
 

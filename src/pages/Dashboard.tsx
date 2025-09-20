@@ -6,6 +6,7 @@ import {
   UserX, 
   Clock, 
   DollarSign, 
+  CreditCard,
   TrendingUp,
   Calendar,
   Plus,
@@ -13,7 +14,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import StatsCard from '@/components/dashboard/StatsCard';
+import Charts from '@/components/dashboard/Charts';
+import AlertsSection from '@/components/dashboard/AlertsSection';
 import { db, Member, initializeDefaultSettings } from '@/lib/database';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { Link } from 'react-router-dom';
@@ -23,8 +25,14 @@ interface DashboardStats {
   activeMembers: number;
   expiredMembers: number;
   expiringSoon: number;
+  incompletePayments: number;
+  todayCheckIns: number;
+  todayRevenue: number;
   monthlyRevenue: number;
   upcomingRenewals: Member[];
+  weeklyCheckIns: { day: string; count: number }[];
+  subscriptionDistribution: { type: string; count: number }[];
+  revenueBreakdown: { type: string; amount: number }[];
 }
 
 export default function Dashboard() {
@@ -33,8 +41,14 @@ export default function Dashboard() {
     activeMembers: 0,
     expiredMembers: 0,
     expiringSoon: 0,
+    incompletePayments: 0,
+    todayCheckIns: 0,
+    todayRevenue: 0,
     monthlyRevenue: 0,
-    upcomingRenewals: []
+    upcomingRenewals: [],
+    weeklyCheckIns: [],
+    subscriptionDistribution: [],
+    revenueBreakdown: []
   });
   const [loading, setLoading] = useState(true);
 
@@ -50,23 +64,82 @@ export default function Dashboard() {
         // Get all members
         const allMembers = await db.getAllMembers();
         const activeMembers = await db.getActiveMembers();
-        const expiredMembers = await db.getExpiredMembers();
         const expiringSoonMembers = await db.getExpiringSoonMembers();
         
-        // Get current month revenue
+        // Get revenue data
         const now = new Date();
         const monthlyRevenue = await db.getMonthlyRevenue(now.getFullYear(), now.getMonth() + 1);
+        const todayRevenue = await db.getDailyRevenue(now);
+        
+        // Get check-ins data
+        const todayCheckIns = await db.getTodayCheckIns();
+        
+        // Get incomplete payments
+        const incompleteMembers = await db.getIncompletePayments();
+        const incompleteMembers = await db.getIncompletePayments();
         
         // Get upcoming renewals (next 7 days)
         const upcomingRenewals = expiringSoonMembers.slice(0, 5);
+        
+        // Weekly check-ins data (last 7 days)
+        const weeklyCheckIns = [];
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          const dayStart = new Date(date);
+          dayStart.setHours(0, 0, 0, 0);
+          const dayEnd = new Date(date);
+          dayEnd.setHours(23, 59, 59, 999);
+          
+          const dayCheckIns = await db.checkIns
+            .where('checkInTime')
+            .between(dayStart, dayEnd)
+            .toArray();
+          
+          weeklyCheckIns.push({
+            day: format(date, 'EEE'),
+            count: dayCheckIns.length
+          });
+        }
+        
+        // Subscription distribution
+        const subscriptionDistribution = [
+          { type: 'Daily', count: allMembers.filter(m => m.subscriptionType === 'daily').length },
+          { type: 'Weekly', count: allMembers.filter(m => m.subscriptionType === 'weekly').length },
+          { type: 'Monthly', count: allMembers.filter(m => m.subscriptionType === 'monthly').length }
+        ];
+        
+        // Revenue breakdown by subscription type
+        const allPayments = await db.payments.where('status').equals('complete').toArray();
+        const revenueBreakdown = [
+          { type: 'Daily', amount: 0 },
+          { type: 'Weekly', amount: 0 },
+          { type: 'Monthly', amount: 0 }
+        ];
+        
+        for (const payment of allPayments) {
+          const member = allMembers.find(m => m.id === payment.memberId);
+          if (member) {
+            const breakdown = revenueBreakdown.find(r => r.type === member.subscriptionType.charAt(0).toUpperCase() + member.subscriptionType.slice(1));
+            if (breakdown) {
+              breakdown.amount += payment.amount;
+            }
+          }
+        }
         
         setStats({
           totalMembers: allMembers.length,
           activeMembers: activeMembers.length,
           expiredMembers: expiredMembers.length,
           expiringSoon: expiringSoonMembers.length,
+          incompletePayments: incompleteMembers.length,
+          todayCheckIns,
+          todayRevenue,
           monthlyRevenue,
-          upcomingRenewals
+          upcomingRenewals,
+          weeklyCheckIns,
+          subscriptionDistribution,
+          revenueBreakdown
         });
       } catch (error) {
         console.error('Error loading dashboard data:', error);
@@ -145,9 +218,15 @@ export default function Dashboard() {
           variant="destructive"
         />
         <StatsCard
-          title="Expiring Soon"
-          value={stats.expiringSoon}
-          icon={Clock}
+          title="Today's Check-ins"
+          value={stats.todayCheckIns}
+          icon={Users}
+          variant="success"
+        />
+        <StatsCard
+          title="Incomplete Payments"
+          value={stats.incompletePayments}
+          icon={CreditCard}
           variant="warning"
         />
       </motion.div>

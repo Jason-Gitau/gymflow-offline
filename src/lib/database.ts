@@ -8,10 +8,11 @@ export interface Member {
   email?: string;
   gender: 'male' | 'female' | 'other';
   startDate: Date;
-  subscriptionType: 'monthly' | 'quarterly' | 'annual';
+  subscriptionType: 'daily' | 'weekly' | 'monthly';
   subscriptionFee: number;
   renewalDate: Date;
   status: 'active' | 'expired' | 'expiring-soon';
+  paymentStatus: 'paid' | 'incomplete';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,8 +23,16 @@ export interface Payment {
   amount: number;
   paymentMethod: 'cash' | 'mpesa' | 'card' | 'bank-transfer';
   paymentDate: Date;
-  renewalPeriod: string; // e.g., "Jan 2024", "Q1 2024"
+  renewalPeriod: string; // e.g., "Jan 2024", "Week 1 Jan"
   notes?: string;
+  status: 'complete' | 'incomplete';
+  createdAt: Date;
+}
+
+export interface CheckIn {
+  id?: number;
+  memberId: number;
+  checkInTime: Date;
   createdAt: Date;
 }
 
@@ -34,9 +43,9 @@ export interface GymSettings {
   contactPhone?: string;
   contactEmail?: string;
   address?: string;
+  defaultDailyFee: number;
+  defaultWeeklyFee: number;
   defaultMonthlyFee: number;
-  defaultQuarterlyFee: number;
-  defaultAnnualFee: number;
   pinCode?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -47,14 +56,16 @@ export class GymFlowDatabase extends Dexie {
   members!: Table<Member>;
   payments!: Table<Payment>;
   settings!: Table<GymSettings>;
+  checkIns!: Table<CheckIn>;
 
   constructor() {
     super('GymFlowDB');
     
-    this.version(1).stores({
-      members: '++id, fullName, phone, email, status, subscriptionType, renewalDate, createdAt',
-      payments: '++id, memberId, paymentDate, amount, paymentMethod, createdAt',
-      settings: '++id, gymName, createdAt'
+    this.version(2).stores({
+      members: '++id, fullName, phone, email, status, subscriptionType, paymentStatus, renewalDate, createdAt',
+      payments: '++id, memberId, paymentDate, amount, paymentMethod, status, createdAt',
+      settings: '++id, gymName, createdAt',
+      checkIns: '++id, memberId, checkInTime, createdAt'
     });
 
     // Hooks for automatic timestamps and status updates
@@ -63,6 +74,9 @@ export class GymFlowDatabase extends Dexie {
       member.createdAt = new Date();
       member.updatedAt = new Date();
       member.status = this.calculateMemberStatus(member.renewalDate);
+      if (!member.paymentStatus) {
+        member.paymentStatus = 'incomplete';
+      }
     });
 
     this.members.hook('updating', (modifications, primKey, obj, trans) => {
@@ -76,6 +90,14 @@ export class GymFlowDatabase extends Dexie {
     this.payments.hook('creating', (primKey, obj, trans) => {
       const payment = obj as Payment;
       payment.createdAt = new Date();
+      if (!payment.status) {
+        payment.status = 'complete';
+      }
+    });
+
+    this.checkIns.hook('creating', (primKey, obj, trans) => {
+      const checkIn = obj as CheckIn;
+      checkIn.createdAt = new Date();
     });
 
     this.settings.hook('creating', (primKey, obj, trans) => {
@@ -110,14 +132,14 @@ export class GymFlowDatabase extends Dexie {
     const renewalDate = new Date(startDate);
     
     switch (subscriptionType) {
+      case 'daily':
+        renewalDate.setDate(renewalDate.getDate() + 1);
+        break;
+      case 'weekly':
+        renewalDate.setDate(renewalDate.getDate() + 7);
+        break;
       case 'monthly':
         renewalDate.setMonth(renewalDate.getMonth() + 1);
-        break;
-      case 'quarterly':
-        renewalDate.setMonth(renewalDate.getMonth() + 3);
-        break;
-      case 'annual':
-        renewalDate.setFullYear(renewalDate.getFullYear() + 1);
         break;
     }
     
@@ -158,7 +180,61 @@ export class GymFlowDatabase extends Dexie {
       .between(startDate, endDate)
       .toArray();
     
-    return payments.reduce((total, payment) => total + payment.amount, 0);
+    const completePayments = payments.filter(p => p.status === 'complete');
+    return completePayments.reduce((total, payment) => total + payment.amount, 0);
+  }
+
+  async getDailyRevenue(date: Date): Promise<number> {
+    const startDate = new Date(date);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(date);
+    endDate.setHours(23, 59, 59, 999);
+    
+    const payments = await this.payments
+      .where('paymentDate')
+      .between(startDate, endDate)
+      .toArray();
+    
+    const completePayments = payments.filter(p => p.status === 'complete');
+    return completePayments.reduce((total, payment) => total + payment.amount, 0);
+  }
+
+  async getTodayCheckIns(): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const checkIns = await this.checkIns
+      .where('checkInTime')
+      .between(today, tomorrow)
+      .toArray();
+    
+    return checkIns.length;
+  }
+
+  async getMemberCheckIns(memberId: number, limit = 5): Promise<CheckIn[]> {
+    return this.checkIns
+      .where('memberId')
+      .equals(memberId)
+      .reverse()
+      .limit(limit)
+      .toArray();
+  }
+
+  async getIncompletePayments(): Promise<Member[]> {
+    return this.members.where('paymentStatus').equals('incomplete').toArray();
+  }
+
+  async checkInMember(memberId: number): Promise<CheckIn> {
+    const checkIn: Omit<CheckIn, 'id'> = {
+      memberId,
+      checkInTime: new Date(),
+      createdAt: new Date()
+    };
+    
+    const id = await this.checkIns.add(checkIn);
+    return { ...checkIn, id };
   }
 
   async getGymSettings(): Promise<GymSettings | undefined> {
@@ -198,10 +274,10 @@ export const initializeDefaultSettings = async () => {
   
   if (!existingSettings) {
     await db.settings.add({
-      gymName: 'My Gym',
-      defaultMonthlyFee: 2000,
-      defaultQuarterlyFee: 5500,
-      defaultAnnualFee: 20000,
+      gymName: 'FitFlow Gym',
+      defaultDailyFee: 150,
+      defaultWeeklyFee: 800,
+      defaultMonthlyFee: 2500,
       createdAt: new Date(),
       updatedAt: new Date()
     });
