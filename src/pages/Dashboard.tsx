@@ -4,7 +4,6 @@ import {
   Users, 
   UserCheck, 
   UserX, 
-  Clock, 
   DollarSign, 
   CreditCard,
   TrendingUp,
@@ -18,7 +17,7 @@ import StatsCard from '@/components/dashboard/StatsCard';
 import Charts from '@/components/dashboard/Charts';
 import AlertsSection from '@/components/dashboard/AlertsSection';
 import { db, Member, initializeDefaultSettings } from '@/lib/database';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 
 interface DashboardStats {
@@ -31,6 +30,8 @@ interface DashboardStats {
   todayRevenue: number;
   monthlyRevenue: number;
   upcomingRenewals: Member[];
+  expiredMembersList: Member[];
+  incompletePaymentsList: Member[];
   weeklyCheckIns: { day: string; count: number }[];
   subscriptionDistribution: { type: string; count: number }[];
   revenueBreakdown: { type: string; amount: number }[];
@@ -47,6 +48,8 @@ export default function Dashboard() {
     todayRevenue: 0,
     monthlyRevenue: 0,
     upcomingRenewals: [],
+    expiredMembersList: [],
+    incompletePaymentsList: [],
     weeklyCheckIns: [],
     subscriptionDistribution: [],
     revenueBreakdown: []
@@ -138,6 +141,8 @@ export default function Dashboard() {
           todayRevenue,
           monthlyRevenue,
           upcomingRenewals,
+          expiredMembersList: expiredMembers,
+          incompletePaymentsList: incompletePaymentMembers,
           weeklyCheckIns,
           subscriptionDistribution,
           revenueBreakdown
@@ -198,7 +203,7 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
+        className="grid gap-4 md:grid-cols-2 lg:grid-cols-5"
       >
         <StatsCard
           title="Total Members"
@@ -231,6 +236,13 @@ export default function Dashboard() {
           variant="warning"
         />
       </motion.div>
+
+      {/* Charts Section */}
+      <Charts 
+        weeklyCheckIns={stats.weeklyCheckIns}
+        subscriptionDistribution={stats.subscriptionDistribution}
+        revenueBreakdown={stats.revenueBreakdown}
+      />
 
       {/* Revenue and Renewals */}
       <div className="grid gap-6 md:grid-cols-2">
@@ -314,6 +326,13 @@ export default function Dashboard() {
         </motion.div>
       </div>
 
+      {/* Alerts Section */}
+      <AlertsSection 
+        expiredMembers={stats.expiredMembersList}
+        incompletePayments={stats.incompletePaymentsList}
+        upcomingRenewals={stats.upcomingRenewals}
+      />
+
       {/* PWA Install Prompt */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
@@ -327,7 +346,7 @@ export default function Dashboard() {
                 <Dumbbell className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="font-semibold text-foreground">GymFlow</h2>
+                <h2 className="font-semibold text-foreground">FitFlow</h2>
                 <p className="text-sm text-muted-foreground">Install as app</p>
               </div>
             </div>
