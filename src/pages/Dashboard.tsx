@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import StatsCard from '@/components/dashboard/StatsCard';
 import Charts from '@/components/dashboard/Charts';
 import AlertsSection from '@/components/dashboard/AlertsSection';
 import { db, Member, initializeDefaultSettings } from '@/lib/database';
@@ -76,7 +77,9 @@ export default function Dashboard() {
         
         // Get incomplete payments
         const incompleteMembers = await db.getIncompletePayments();
-        const incompleteMembers = await db.getIncompletePayments();
+        
+        // Get expired members
+        const expiredMembers = allMembers.filter(member => member.status === 'expired');
         
         // Get upcoming renewals (next 7 days)
         const upcomingRenewals = expiringSoonMembers.slice(0, 5);
