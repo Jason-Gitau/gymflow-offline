@@ -62,10 +62,11 @@ export default function Dashboard() {
         // Update member statuses first
         await db.updateMemberStatuses();
         
-        // Get all members
+        // Get all data
         const allMembers = await db.getAllMembers();
         const activeMembers = await db.getActiveMembers();
         const expiringSoonMembers = await db.getExpiringSoonMembers();
+        const incompletePaymentMembers = await db.getIncompletePayments();
         
         // Get revenue data
         const now = new Date();
@@ -74,9 +75,6 @@ export default function Dashboard() {
         
         // Get check-ins data
         const todayCheckIns = await db.getTodayCheckIns();
-        
-        // Get incomplete payments
-        const incompleteMembers = await db.getIncompletePayments();
         
         // Get expired members
         const expiredMembers = allMembers.filter(member => member.status === 'expired');
@@ -135,7 +133,7 @@ export default function Dashboard() {
           activeMembers: activeMembers.length,
           expiredMembers: expiredMembers.length,
           expiringSoon: expiringSoonMembers.length,
-          incompletePayments: incompleteMembers.length,
+          incompletePayments: incompletePaymentMembers.length,
           todayCheckIns,
           todayRevenue,
           monthlyRevenue,
