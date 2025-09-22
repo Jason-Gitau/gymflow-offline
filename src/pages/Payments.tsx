@@ -123,12 +123,16 @@ export default function Payments() {
         createdAt: new Date(),
       });
 
-      // Update member's renewal date and status
+      // Update member's renewal date, status, and payment status
       const member = await db.members.get(data.memberId);
       if (member) {
         const newRenewalDate = db.calculateRenewalDate(data.paymentDate, member.subscriptionType);
+        const newStatus = db['calculateMemberStatus'](newRenewalDate);
         await db.members.update(data.memberId, {
           renewalDate: newRenewalDate,
+          status: newStatus,
+          paymentStatus: 'paid',
+          updatedAt: new Date(),
         });
       }
 
@@ -225,7 +229,10 @@ export default function Payments() {
                         <SelectContent>
                           {members.map((member) => (
                             <SelectItem key={member.id} value={member.id!.toString()}>
-                              {member.fullName} - {member.phone}
+                              <div className="flex flex-col">
+                                <span className="font-medium">{member.fullName}</span>
+                                <span className="text-xs text-muted-foreground">{member.phone} • {member.subscriptionType}</span>
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>

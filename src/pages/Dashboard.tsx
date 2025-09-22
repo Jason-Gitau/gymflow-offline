@@ -155,6 +155,11 @@ export default function Dashboard() {
     };
 
     loadDashboardData();
+    
+    // Set up an interval to refresh data every 30 seconds
+    const interval = setInterval(loadDashboardData, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) {
@@ -203,7 +208,7 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid gap-4 md:grid-cols-2 lg:grid-cols-5"
+        className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5"
       >
         <StatsCard
           title="Total Members"
